@@ -28,6 +28,7 @@
         input[type=range] {
             width: 80%;
             margin: 15px 0;
+            cursor: pointer;
         }
         .labels {
             display: flex;
@@ -36,6 +37,7 @@
             margin: 0 auto;
             font-weight: 600;
             color: #4b5563;
+            font-size: 0.9rem;
         }
         .grid {
             display: grid;
@@ -47,22 +49,25 @@
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
         }
         .column h3 {
             text-align: center;
             border-bottom: 2px solid #e5e7eb;
             padding-bottom: 10px;
             margin-top: 0;
+            margin-bottom: 15px;
         }
         .doc-card {
             padding: 12px;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             border-radius: 6px;
             background: #f3f4f6;
             border: 1px solid #e5e7eb;
             display: flex;
             align-items: center;
-            transition: all 0.3s ease;
+            height: 45px; /* Fixed height to keep spacing consistent */
         }
         .rank-badge {
             background: #374151;
@@ -76,6 +81,7 @@
             font-weight: bold;
             margin-right: 15px;
             flex-shrink: 0;
+            transition: background-color 0.3s ease;
         }
         .winner {
             background: #ecfdf5;
@@ -87,12 +93,27 @@
         }
         .doc-title {
             font-size: 0.95rem;
-            line-height: 1.4;
+            line-height: 1.2;
+            font-weight: 500;
         }
         .score {
             font-size: 0.75rem;
             color: #6b7280;
             margin-top: 4px;
+        }
+        
+        /* Specific styles for the animated Hybrid column */
+        .hybrid-list-container {
+            position: relative;
+            height: 380px; /* Space for 5 absolutely positioned cards */
+        }
+        .hybrid-card {
+            position: absolute;
+            left: 0;
+            right: 0;
+            margin-bottom: 0;
+            /* This transition is the magic that makes them slide smoothly */
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.3s ease, border-color 0.3s ease;
         }
     </style>
 </head>
@@ -123,7 +144,9 @@
             </div>
         <div class="column" id="hybridCol">
             <h3>Final Hybrid (RRF) Rank</h3>
-            </div>
+            <div class="hybrid-list-container" id="hybridContainer">
+                </div>
+        </div>
     </div>
 
     <script>
@@ -141,7 +164,7 @@
         // DOM Elements
         const slider = document.getElementById('weightSlider');
         const weightDisplay = document.getElementById('weightDisplay');
-        const hybridCol = document.getElementById('hybridCol');
+        const hybridContainer = document.getElementById('hybridContainer');
 
         // Render Static Columns
         function renderStaticList(containerId, sortKey) {
@@ -159,43 +182,58 @@
             });
         }
 
-        // Calculate RRF and Render Dynamic Column
-        function renderHybridList(semanticWeightPct) {
+        // Initialize Animated Hybrid List (Creates DOM elements once)
+        function initHybridList() {
+            documents.forEach((doc) => {
+                const card = document.createElement('div');
+                card.className = 'doc-card hybrid-card';
+                card.id = 'hybrid-doc-' + doc.id; // Assign ID to find it later
+                
+                card.innerHTML = `
+                    <div class="rank-badge"></div>
+                    <div>
+                        <div class="doc-title">${doc.title}</div>
+                        <div class="score"></div>
+                    </div>
+                `;
+                hybridContainer.appendChild(card);
+            });
+        }
+
+        // Calculate RRF and Update Positions
+        function updateHybridPositions(semanticWeightPct) {
             const semanticWeight = semanticWeightPct / 100;
             const keywordWeight = 1 - semanticWeight;
 
             // Calculate Scores
             let hybridDocs = documents.map(doc => {
-                // RRF Formula with weighting
                 const keywordScore = keywordWeight * (1 / (k + doc.keywordRank));
                 const semanticScore = semanticWeight * (1 / (k + doc.semanticRank));
                 const rrfScore = keywordScore + semanticScore;
-                
                 return { ...doc, rrfScore };
             });
 
             // Sort by highest score first
             hybridDocs.sort((a, b) => b.rrfScore - a.rrfScore);
 
-            // Clear previous
-            const h3 = hybridCol.querySelector('h3');
-            hybridCol.innerHTML = '';
-            hybridCol.appendChild(h3);
-
-            // Render
+            // Update existing DOM elements
             hybridDocs.forEach((doc, index) => {
                 const rank = index + 1;
-                const card = document.createElement('div');
-                card.className = rank === 1 ? 'doc-card winner' : 'doc-card';
+                const card = document.getElementById('hybrid-doc-' + doc.id);
                 
-                card.innerHTML = `
-                    <div class="rank-badge">${rank}</div>
-                    <div>
-                        <div class="doc-title">${doc.title}</div>
-                        <div class="score">Score: ${(doc.rrfScore * 1000).toFixed(3)}</div>
-                    </div>
-                `;
-                hybridCol.appendChild(card);
+                // Update text
+                card.querySelector('.rank-badge').innerText = rank;
+                card.querySelector('.score').innerText = 'Score: ' + (doc.rrfScore * 1000).toFixed(3);
+
+                // Animate position (72px spacing per card)
+                card.style.transform = \`translateY(\${index * 85}px)\`;
+
+                // Add or remove winner styling
+                if (rank === 1) {
+                    card.classList.add('winner');
+                } else {
+                    card.classList.remove('winner');
+                }
             });
         }
 
@@ -204,13 +242,14 @@
             const semanticVal = e.target.value;
             const keywordVal = 100 - semanticVal;
             weightDisplay.innerText = `${keywordVal}% Keyword / ${semanticVal}% Semantic`;
-            renderHybridList(semanticVal);
+            updateHybridPositions(semanticVal);
         });
 
-        // Initialize
+        // Initial Setup
         renderStaticList('keywordCol', 'keywordRank');
         renderStaticList('semanticCol', 'semanticRank');
-        renderHybridList(50); // Initial load at 50/50
+        initHybridList();
+        updateHybridPositions(50); // Initial layout
     </script>
 </body>
 </html>
