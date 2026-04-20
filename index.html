@@ -10,42 +10,81 @@
             background-color: #f9fafb;
             color: #111827;
             padding: 20px;
-            max-width: 1200px;
+            max-width: 1300px;
             margin: 0 auto;
         }
         .header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
-        .slider-container {
+        .controls-panel {
             background: white;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             margin-bottom: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            position: relative;
+            z-index: 10;
+        }
+        .control-group {
             text-align: center;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .control-group:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .control-group h3 {
+            margin: 0 0 5px 0;
+            font-size: 1.1rem;
+        }
+        .control-group p {
+            margin: 0 0 10px 0;
+            font-size: 0.85rem;
+            color: #6b7280;
         }
         input[type=range] {
             width: 80%;
-            margin: 15px 0;
             cursor: pointer;
         }
         .labels {
             display: flex;
             justify-content: space-between;
             width: 80%;
-            margin: 0 auto;
+            margin: 5px auto 0;
             font-weight: 600;
             color: #4b5563;
             font-size: 0.9rem;
         }
+        
+        /* The Grid and SVG Overlay */
+        .grid-container {
+            position: relative; /* Crucial for SVG positioning */
+        }
+        #connections-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Lets you click cards through the lines */
+            z-index: 1;
+        }
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 40px; /* Wider gap for the lines to sweep gracefully */
+            position: relative;
+            z-index: 2;
         }
+
         .column {
-            background: white;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(4px);
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -59,15 +98,19 @@
             margin-top: 0;
             margin-bottom: 15px;
         }
+
+        /* Document Cards */
         .doc-card {
             padding: 12px;
             margin-bottom: 12px;
             border-radius: 6px;
-            background: #f3f4f6;
+            background: white;
             border: 1px solid #e5e7eb;
+            border-left-width: 5px; /* Thicker left border for color coding */
             display: flex;
             align-items: center;
-            height: 55px; /* Increased height to fit arrows and scores safely */
+            height: 55px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
         .rank-badge {
             background: #374151;
@@ -79,53 +122,40 @@
             align-items: center;
             justify-content: center;
             font-weight: bold;
-            margin-right: 15px;
+            margin-right: 12px;
             flex-shrink: 0;
-            transition: background-color 0.3s ease;
-        }
-        .winner {
-            background: #ecfdf5;
-            border-color: #10b981;
-            box-shadow: 0 4px 6px rgba(16, 185, 129, 0.1);
-        }
-        .winner .rank-badge {
-            background: #10b981;
         }
         .doc-title {
-            font-size: 0.95rem;
+            font-size: 0.85rem;
             line-height: 1.2;
             font-weight: 600;
         }
         .score-container {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: #4b5563;
-            margin-top: 6px;
+            margin-top: 4px;
             display: flex;
             align-items: center;
             gap: 10px;
         }
-        .trend-up {
-            color: #10b981;
-            font-weight: bold;
-        }
-        .trend-down {
-            color: #ef4444;
-            font-weight: bold;
-        }
-        .trend-flat {
-            color: #9ca3af;
-            font-weight: bold;
-        }
+        .trend-up { color: #10b981; font-weight: bold; }
+        .trend-down { color: #ef4444; font-weight: bold; }
+        .trend-flat { color: #9ca3af; font-weight: bold; }
+        
         .hybrid-list-container {
             position: relative;
-            height: 480px; /* Adjusted container to fit taller cards */
+            height: 480px;
         }
         .hybrid-card {
             position: absolute;
             left: 0;
             right: 0;
             margin-bottom: 0;
-            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.3s ease, border-color 0.3s ease;
+            /* Transition handles the vertical sliding */
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.3s ease;
+        }
+        .hybrid-card.winner {
+            box-shadow: 0 0 0 2px #10b981, 0 4px 6px rgba(16, 185, 129, 0.2);
         }
     </style>
 </head>
@@ -136,65 +166,91 @@
         <p>Query: "Lateral movement using stolen AWS credentials"</p>
     </div>
 
-    <div class="slider-container">
-        <h3>Search Weight Blending</h3>
-        <p>Adjust the slider to favor exact keywords or semantic context.</p>
-        <div class="labels">
-            <span>100% Keyword (BM25)</span>
-            <span id="weightDisplay">50% / 50%</span>
-            <span>100% Semantic (Vector)</span>
+    <div class="controls-panel">
+        <div class="control-group">
+            <h3>Search Weight Blending</h3>
+            <p>Favor exact keywords (BM25) or semantic context (Vector).</p>
+            <input type="range" id="weightSlider" min="0" max="100" value="50">
+            <div class="labels">
+                <span>100% Keyword</span>
+                <span id="weightDisplay">50% / 50%</span>
+                <span>100% Semantic</span>
+            </div>
         </div>
-        <input type="range" id="weightSlider" min="0" max="100" value="50">
+        <div class="control-group">
+            <h3>k-Constant (Smoothing)</h3>
+            <p>Lower k penalizes lower ranks heavily. Higher k flattens the curve.</p>
+            <input type="range" id="kSlider" min="1" max="100" value="60">
+            <div class="labels">
+                <span>Aggressive (k=1)</span>
+                <span id="kDisplay">k = 60</span>
+                <span>Flat (k=100)</span>
+            </div>
+        </div>
     </div>
 
-    <div class="grid">
-        <div class="column" id="keywordCol">
-            <h3>Keyword (BM25) Rank</h3>
-        </div>
-        <div class="column" id="semanticCol">
-            <h3>Semantic (Vector) Rank</h3>
-        </div>
-        <div class="column" id="hybridCol">
-            <h3>Final Hybrid (RRF) Rank</h3>
-            <div class="hybrid-list-container" id="hybridContainer">
+    <div class="grid-container" id="gridContainer">
+        <svg id="connections-svg"></svg>
+        
+        <div class="grid">
+            <div class="column" id="keywordCol">
+                <h3>Keyword (Left)</h3>
+            </div>
+            
+            <div class="column" id="hybridCol">
+                <h3>Final Hybrid (Center)</h3>
+                <div class="hybrid-list-container" id="hybridContainer"></div>
+            </div>
+            
+            <div class="column" id="semanticCol">
+                <h3>Semantic (Right)</h3>
             </div>
         </div>
     </div>
 
     <script>
+        // Data with assigned color codes for tracking
         const documents = [
-            { id: "A", title: "AWS Okta breach incident report", keywordRank: 1, semanticRank: 4, baselineRank: 0 },
-            { id: "B", title: "Cloud IAM hijacking and identity pivot", keywordRank: 4, semanticRank: 1, baselineRank: 0 },
-            { id: "C", title: "AWS lateral pivot via compromised tokens", keywordRank: 3, semanticRank: 2, baselineRank: 0 },
-            { id: "D", title: "Stolen laptop incident", keywordRank: 2, semanticRank: 5, baselineRank: 0 },
-            { id: "E", title: "GCP credential theft", keywordRank: 5, semanticRank: 3, baselineRank: 0 }
+            { id: "A", title: "AWS Okta breach incident report", keywordRank: 1, semanticRank: 4, baselineRank: 0, color: "#3b82f6" }, // Blue
+            { id: "B", title: "Cloud IAM hijacking and identity pivot", keywordRank: 4, semanticRank: 1, baselineRank: 0, color: "#8b5cf6" }, // Purple
+            { id: "C", title: "AWS lateral pivot via compromised tokens", keywordRank: 3, semanticRank: 2, baselineRank: 0, color: "#10b981" }, // Green
+            { id: "D", title: "Stolen laptop incident", keywordRank: 2, semanticRank: 5, baselineRank: 0, color: "#f59e0b" }, // Orange
+            { id: "E", title: "GCP credential theft", keywordRank: 5, semanticRank: 3, baselineRank: 0, color: "#ef4444" }  // Red
         ];
 
-        const k = 60; 
-
-        const slider = document.getElementById('weightSlider');
+        const weightSlider = document.getElementById('weightSlider');
         const weightDisplay = document.getElementById('weightDisplay');
+        const kSlider = document.getElementById('kSlider');
+        const kDisplay = document.getElementById('kDisplay');
+        
         const hybridContainer = document.getElementById('hybridContainer');
+        const svgCanvas = document.getElementById('connections-svg');
+        const gridContainer = document.getElementById('gridContainer');
 
-        function renderStaticList(containerId, sortKey) {
+        // Render Static Columns
+        function renderStaticList(containerId, sortKey, prefix) {
             const container = document.getElementById(containerId);
             const sortedDocs = [...documents].sort(function(a, b) { return a[sortKey] - b[sortKey]; });
             
             sortedDocs.forEach(function(doc) {
                 const card = document.createElement('div');
                 card.className = 'doc-card';
+                card.id = prefix + '-doc-' + doc.id;
+                card.style.borderLeftColor = doc.color;
+                
                 card.innerHTML = '<div class="rank-badge">' + doc[sortKey] + '</div>' +
                                  '<div class="doc-title">' + doc.title + '</div>';
                 container.appendChild(card);
             });
         }
 
-        // Initialize the hybrid cards in the DOM
+        // Initialize Center Column
         function initHybridList() {
             documents.forEach(function(doc) {
                 const card = document.createElement('div');
                 card.className = 'doc-card hybrid-card';
-                card.id = 'hybrid-doc-' + doc.id; 
+                card.id = 'hyb-doc-' + doc.id; 
+                card.style.borderLeftColor = doc.color;
                 
                 card.innerHTML = '<div class="rank-badge"></div>' +
                                  '<div style="width: 100%;">' +
@@ -208,12 +264,100 @@
             });
         }
 
-        // Calculate the RRF scores and update the UI
-        function updateHybridPositions(semanticWeightPct, isInitialLoad) {
-            const semanticWeight = semanticWeightPct / 100;
-            const keywordWeight = 1 - semanticWeight;
+        // Setup SVG Paths
+        function initSVGPaths() {
+            documents.forEach(function(doc) {
+                // Path from Keyword (Left) to Hybrid (Center)
+                const pathL = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                pathL.id = 'path-left-' + doc.id;
+                pathL.setAttribute('stroke', doc.color);
+                pathL.setAttribute('stroke-width', '4');
+                pathL.setAttribute('fill', 'none');
+                pathL.setAttribute('opacity', '0.4');
+                svgCanvas.appendChild(pathL);
 
-            // Calculate scores
+                // Path from Semantic (Right) to Hybrid (Center)
+                const pathR = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                pathR.id = 'path-right-' + doc.id;
+                pathR.setAttribute('stroke', doc.color);
+                pathR.setAttribute('stroke-width', '4');
+                pathR.setAttribute('fill', 'none');
+                pathR.setAttribute('opacity', '0.4');
+                svgCanvas.appendChild(pathR);
+            });
+        }
+
+        // Draw Bezier Curves between elements
+        function drawCurve(startX, startY, endX, endY) {
+            const controlOffset = Math.abs(endX - startX) * 0.5;
+            return 'M ' + startX + ' ' + startY + ' C ' + (startX + controlOffset) + ' ' + startY + ', ' + (endX - controlOffset) + ' ' + endY + ', ' + endX + ' ' + endY;
+        }
+
+        // Update the SVG lines based on current DOM positions
+        function updateLines() {
+            const containerRect = gridContainer.getBoundingClientRect();
+            
+            documents.forEach(function(doc) {
+                const kwCard = document.getElementById('kw-doc-' + doc.id);
+                const semCard = document.getElementById('sem-doc-' + doc.id);
+                const hybCard = document.getElementById('hyb-doc-' + doc.id);
+
+                if (!kwCard || !semCard || !hybCard) return;
+
+                const kwRect = kwCard.getBoundingClientRect();
+                const semRect = semCard.getBoundingClientRect();
+                const hybRect = hybCard.getBoundingClientRect();
+
+                // Left Column to Center Column
+                const startX_L = kwRect.right - containerRect.left;
+                const startY_L = kwRect.top + (kwRect.height / 2) - containerRect.top;
+                const endX_L = hybRect.left - containerRect.left;
+                const endY_L = hybRect.top + (hybRect.height / 2) - containerRect.top;
+
+                document.getElementById('path-left-' + doc.id).setAttribute('d', drawCurve(startX_L, startY_L, endX_L, endY_L));
+
+                // Right Column to Center Column
+                const startX_R = semRect.left - containerRect.left;
+                const startY_R = semRect.top + (semRect.height / 2) - containerRect.top;
+                const endX_R = hybRect.right - containerRect.left;
+                const endY_R = hybRect.top + (hybRect.height / 2) - containerRect.top;
+
+                document.getElementById('path-right-' + doc.id).setAttribute('d', drawCurve(startX_R, startY_R, endX_R, endY_R));
+            });
+        }
+
+        // Animation Loop Variables
+        let isAnimating = false;
+        let animationTimer;
+
+        // The continuous drawing loop that syncs with the CSS slide transition
+        function animationLoop() {
+            updateLines();
+            if (isAnimating) {
+                requestAnimationFrame(animationLoop);
+            }
+        }
+
+        // Trigger the animation loop when slider moves
+        function triggerLineAnimation() {
+            if (!isAnimating) {
+                isAnimating = true;
+                animationLoop();
+            }
+            clearTimeout(animationTimer);
+            // Stop animating 450ms after the last slider movement (covers the 0.4s CSS transition)
+            animationTimer = setTimeout(function() {
+                isAnimating = false;
+                updateLines(); // One final snap for perfect alignment
+            }, 450);
+        }
+
+        // Calculate RRF and Update Positions
+        function updateHybridPositions(isInitialLoad) {
+            const semanticWeight = weightSlider.value / 100;
+            const keywordWeight = 1 - semanticWeight;
+            const k = parseInt(kSlider.value, 10);
+
             let hybridDocs = documents.map(function(doc) {
                 const keywordScore = keywordWeight * (1 / (k + doc.keywordRank));
                 const semanticScore = semanticWeight * (1 / (k + doc.semanticRank));
@@ -221,65 +365,62 @@
                 return { id: doc.id, title: doc.title, rrfScore: rrfScore };
             });
 
-            // Sort by score
             hybridDocs.sort(function(a, b) { return b.rrfScore - a.rrfScore; });
 
-            // Update UI elements
             hybridDocs.forEach(function(doc, index) {
                 const rank = index + 1;
                 const origDoc = documents.find(function(d) { return d.id === doc.id; });
                 
-                // If it's the first load (50/50), set the baseline rank
-                if (isInitialLoad) {
-                    origDoc.baselineRank = rank;
-                }
+                if (isInitialLoad) origDoc.baselineRank = rank;
 
-                const card = document.getElementById('hybrid-doc-' + doc.id);
+                const card = document.getElementById('hyb-doc-' + doc.id);
                 
-                // Update Badge and Score
                 card.querySelector('.rank-badge').innerText = rank;
-                card.querySelector('.score-text').innerHTML = 'RRF Score: <strong>' + (doc.rrfScore * 1000).toFixed(3) + '</strong>';
+                card.querySelector('.score-text').innerHTML = 'Score: <strong>' + (doc.rrfScore * 1000).toFixed(3) + '</strong>';
                 
-                // Calculate and display Trend Arrow compared to 50/50 baseline
                 const trendElement = card.querySelector('.trend-indicator');
                 if (rank < origDoc.baselineRank) {
-                    const jump = origDoc.baselineRank - rank;
-                    trendElement.innerHTML = '▲ +' + jump;
+                    trendElement.innerHTML = '▲ +' + (origDoc.baselineRank - rank);
                     trendElement.className = 'trend-indicator trend-up';
                 } else if (rank > origDoc.baselineRank) {
-                    const drop = rank - origDoc.baselineRank;
-                    trendElement.innerHTML = '▼ -' + drop;
+                    trendElement.innerHTML = '▼ -' + (rank - origDoc.baselineRank);
                     trendElement.className = 'trend-indicator trend-down';
                 } else {
-                    trendElement.innerHTML = '— Baseline';
+                    trendElement.innerHTML = '— Base';
                     trendElement.className = 'trend-indicator trend-flat';
                 }
 
-                // Animate position (95px per slot to account for taller cards + margins)
                 card.style.transform = 'translateY(' + (index * 95) + 'px)';
 
-                // Highlight winner
-                if (rank === 1) {
-                    card.classList.add('winner');
-                } else {
-                    card.classList.remove('winner');
-                }
+                if (rank === 1) card.classList.add('winner');
+                else card.classList.remove('winner');
             });
+
+            triggerLineAnimation();
         }
 
-        // Event Listener
-        slider.addEventListener('input', function(e) {
-            const semanticVal = e.target.value;
-            const keywordVal = 100 - semanticVal;
-            weightDisplay.innerText = keywordVal + '% Keyword / ' + semanticVal + '% Semantic';
-            updateHybridPositions(semanticVal, false);
-        });
+        // Handle Slider Inputs
+        function handleInput() {
+            weightDisplay.innerText = (100 - weightSlider.value) + '% Keyword / ' + weightSlider.value + '% Semantic';
+            kDisplay.innerText = 'k = ' + kSlider.value;
+            updateHybridPositions(false);
+        }
 
-        // Setup
-        renderStaticList('keywordCol', 'keywordRank');
-        renderStaticList('semanticCol', 'semanticRank');
+        weightSlider.addEventListener('input', handleInput);
+        kSlider.addEventListener('input', handleInput);
+        window.addEventListener('resize', updateLines); // Redraw lines if window resizes
+
+        // Initialize Everything
+        renderStaticList('keywordCol', 'keywordRank', 'kw');
+        renderStaticList('semanticCol', 'semanticRank', 'sem');
         initHybridList();
-        updateHybridPositions(50, true); // True flag sets the initial 50/50 baseline
+        initSVGPaths();
+        
+        // Small delay to ensure DOM is fully rendered before drawing initial lines
+        setTimeout(function() {
+            updateHybridPositions(true);
+        }, 50);
+
     </script>
 </body>
 </html>
