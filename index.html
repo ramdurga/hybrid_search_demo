@@ -67,13 +67,13 @@
             border: 1px solid #e5e7eb;
             display: flex;
             align-items: center;
-            height: 45px; 
+            height: 55px; /* Increased height to fit arrows and scores safely */
         }
         .rank-badge {
             background: #374151;
             color: white;
-            width: 28px;
-            height: 28px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -94,16 +94,31 @@
         .doc-title {
             font-size: 0.95rem;
             line-height: 1.2;
-            font-weight: 500;
+            font-weight: 600;
         }
-        .score {
-            font-size: 0.75rem;
-            color: #6b7280;
-            margin-top: 4px;
+        .score-container {
+            font-size: 0.8rem;
+            color: #4b5563;
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .trend-up {
+            color: #10b981;
+            font-weight: bold;
+        }
+        .trend-down {
+            color: #ef4444;
+            font-weight: bold;
+        }
+        .trend-flat {
+            color: #9ca3af;
+            font-weight: bold;
         }
         .hybrid-list-container {
             position: relative;
-            height: 380px; 
+            height: 480px; /* Adjusted container to fit taller cards */
         }
         .hybrid-card {
             position: absolute;
@@ -148,11 +163,11 @@
 
     <script>
         const documents = [
-            { id: "A", title: "AWS Okta breach incident report", keywordRank: 1, semanticRank: 4 },
-            { id: "B", title: "Cloud IAM hijacking and identity pivot", keywordRank: 4, semanticRank: 1 },
-            { id: "C", title: "AWS lateral pivot via compromised tokens", keywordRank: 3, semanticRank: 2 },
-            { id: "D", title: "Stolen laptop incident", keywordRank: 2, semanticRank: 5 },
-            { id: "E", title: "GCP credential theft", keywordRank: 5, semanticRank: 3 }
+            { id: "A", title: "AWS Okta breach incident report", keywordRank: 1, semanticRank: 4, baselineRank: 0 },
+            { id: "B", title: "Cloud IAM hijacking and identity pivot", keywordRank: 4, semanticRank: 1, baselineRank: 0 },
+            { id: "C", title: "AWS lateral pivot via compromised tokens", keywordRank: 3, semanticRank: 2, baselineRank: 0 },
+            { id: "D", title: "Stolen laptop incident", keywordRank: 2, semanticRank: 5, baselineRank: 0 },
+            { id: "E", title: "GCP credential theft", keywordRank: 5, semanticRank: 3, baselineRank: 0 }
         ];
 
         const k = 60; 
@@ -174,6 +189,7 @@
             });
         }
 
+        // Initialize the hybrid cards in the DOM
         function initHybridList() {
             documents.forEach(function(doc) {
                 const card = document.createElement('div');
@@ -181,18 +197,23 @@
                 card.id = 'hybrid-doc-' + doc.id; 
                 
                 card.innerHTML = '<div class="rank-badge"></div>' +
-                                 '<div>' +
+                                 '<div style="width: 100%;">' +
                                      '<div class="doc-title">' + doc.title + '</div>' +
-                                     '<div class="score"></div>' +
+                                     '<div class="score-container">' +
+                                         '<span class="score-text"></span>' +
+                                         '<span class="trend-indicator"></span>' +
+                                     '</div>' +
                                  '</div>';
                 hybridContainer.appendChild(card);
             });
         }
 
-        function updateHybridPositions(semanticWeightPct) {
+        // Calculate the RRF scores and update the UI
+        function updateHybridPositions(semanticWeightPct, isInitialLoad) {
             const semanticWeight = semanticWeightPct / 100;
             const keywordWeight = 1 - semanticWeight;
 
+            // Calculate scores
             let hybridDocs = documents.map(function(doc) {
                 const keywordScore = keywordWeight * (1 / (k + doc.keywordRank));
                 const semanticScore = semanticWeight * (1 / (k + doc.semanticRank));
@@ -200,17 +221,44 @@
                 return { id: doc.id, title: doc.title, rrfScore: rrfScore };
             });
 
+            // Sort by score
             hybridDocs.sort(function(a, b) { return b.rrfScore - a.rrfScore; });
 
+            // Update UI elements
             hybridDocs.forEach(function(doc, index) {
                 const rank = index + 1;
+                const origDoc = documents.find(function(d) { return d.id === doc.id; });
+                
+                // If it's the first load (50/50), set the baseline rank
+                if (isInitialLoad) {
+                    origDoc.baselineRank = rank;
+                }
+
                 const card = document.getElementById('hybrid-doc-' + doc.id);
                 
+                // Update Badge and Score
                 card.querySelector('.rank-badge').innerText = rank;
-                card.querySelector('.score').innerText = 'Score: ' + (doc.rrfScore * 1000).toFixed(3);
+                card.querySelector('.score-text').innerHTML = 'RRF Score: <strong>' + (doc.rrfScore * 1000).toFixed(3) + '</strong>';
                 
-                card.style.transform = 'translateY(' + (index * 85) + 'px)';
+                // Calculate and display Trend Arrow compared to 50/50 baseline
+                const trendElement = card.querySelector('.trend-indicator');
+                if (rank < origDoc.baselineRank) {
+                    const jump = origDoc.baselineRank - rank;
+                    trendElement.innerHTML = '▲ +' + jump;
+                    trendElement.className = 'trend-indicator trend-up';
+                } else if (rank > origDoc.baselineRank) {
+                    const drop = rank - origDoc.baselineRank;
+                    trendElement.innerHTML = '▼ -' + drop;
+                    trendElement.className = 'trend-indicator trend-down';
+                } else {
+                    trendElement.innerHTML = '— Baseline';
+                    trendElement.className = 'trend-indicator trend-flat';
+                }
 
+                // Animate position (95px per slot to account for taller cards + margins)
+                card.style.transform = 'translateY(' + (index * 95) + 'px)';
+
+                // Highlight winner
                 if (rank === 1) {
                     card.classList.add('winner');
                 } else {
@@ -219,17 +267,19 @@
             });
         }
 
+        // Event Listener
         slider.addEventListener('input', function(e) {
             const semanticVal = e.target.value;
             const keywordVal = 100 - semanticVal;
             weightDisplay.innerText = keywordVal + '% Keyword / ' + semanticVal + '% Semantic';
-            updateHybridPositions(semanticVal);
+            updateHybridPositions(semanticVal, false);
         });
 
+        // Setup
         renderStaticList('keywordCol', 'keywordRank');
         renderStaticList('semanticCol', 'semanticRank');
         initHybridList();
-        updateHybridPositions(50); 
+        updateHybridPositions(50, true); // True flag sets the initial 50/50 baseline
     </script>
 </body>
 </html>
