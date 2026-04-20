@@ -73,11 +73,12 @@
             height: 100%;
             pointer-events: none; 
             z-index: 1;
+            overflow: visible; /* Prevents arrows from clipping */
         }
         .grid {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
-            gap: 60px; /* Widened gap to make the curves look graceful */
+            gap: 60px; 
             position: relative;
             z-index: 2;
         }
@@ -261,53 +262,45 @@
             });
         }
 
+        // Bulletproof approach: Draw arrowheads explicitly as SVG Polygons
         function initSVGPaths() {
-            // Create a <defs> block to store the custom arrowheads
-            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-            svgCanvas.appendChild(defs);
-
             documents.forEach(function(doc) {
-                // Generate a colored arrowhead marker for each document
-                const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
-                marker.id = 'arrow-' + doc.id;
-                marker.setAttribute('viewBox', '0 0 10 10');
-                marker.setAttribute('refX', '8'); // Pulls the arrow back slightly so it doesn't overlap the card
-                marker.setAttribute('refY', '5');
-                marker.setAttribute('markerWidth', '5');
-                marker.setAttribute('markerHeight', '5');
-                marker.setAttribute('orient', 'auto'); // Auto orients to point in the direction of the path
-                
-                const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                arrowPath.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
-                arrowPath.setAttribute('fill', doc.color);
-                marker.appendChild(arrowPath);
-                defs.appendChild(marker);
-
-                // Left to Center Path
+                // --- LEFT TO CENTER ---
                 const pathL = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 pathL.id = 'path-left-' + doc.id;
                 pathL.setAttribute('stroke', doc.color);
                 pathL.setAttribute('stroke-width', '3');
                 pathL.setAttribute('fill', 'none');
                 pathL.setAttribute('opacity', '0.6');
-                pathL.setAttribute('marker-end', 'url(#arrow-' + doc.id + ')');
                 svgCanvas.appendChild(pathL);
 
-                // Right to Center Path
+                const arrowL = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                arrowL.id = 'arrow-left-' + doc.id;
+                arrowL.setAttribute('points', '-12,-6 0,0 -12,6'); // Arrow pointing right
+                arrowL.setAttribute('fill', doc.color);
+                arrowL.setAttribute('opacity', '0.8');
+                svgCanvas.appendChild(arrowL);
+
+                // --- RIGHT TO CENTER ---
                 const pathR = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 pathR.id = 'path-right-' + doc.id;
                 pathR.setAttribute('stroke', doc.color);
                 pathR.setAttribute('stroke-width', '3');
                 pathR.setAttribute('fill', 'none');
                 pathR.setAttribute('opacity', '0.6');
-                pathR.setAttribute('marker-end', 'url(#arrow-' + doc.id + ')');
                 svgCanvas.appendChild(pathR);
+
+                const arrowR = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                arrowR.id = 'arrow-right-' + doc.id;
+                arrowR.setAttribute('points', '12,-6 0,0 12,6'); // Arrow pointing left
+                arrowR.setAttribute('fill', doc.color);
+                arrowR.setAttribute('opacity', '0.8');
+                svgCanvas.appendChild(arrowR);
             });
         }
 
-        // Draw a smooth Cubic Bezier Curve
         function drawCurve(startX, startY, endX, endY) {
-            const controlOffset = Math.abs(endX - startX) * 0.4; // 40% of the distance creates a nice sweep
+            const controlOffset = Math.abs(endX - startX) * 0.4;
             return 'M ' + startX + ' ' + startY + ' C ' + (startX + controlOffset) + ' ' + startY + ', ' + (endX - controlOffset) + ' ' + endY + ', ' + endX + ' ' + endY;
         }
 
@@ -325,23 +318,25 @@
                 const semRect = semCard.getBoundingClientRect();
                 const hybRect = hybCard.getBoundingClientRect();
 
-                // Path from Keyword (Left) to Hybrid (Center)
+                // Left Path & Arrow
                 const startX_L = kwRect.right - containerRect.left;
                 const startY_L = kwRect.top + (kwRect.height / 2) - containerRect.top;
-                const endX_L = hybRect.left - containerRect.left - 4; // Minus 4px for arrow clearance
+                const targetX_L = hybRect.left - containerRect.left - 4; // Margin before hitting card
                 const endY_L = hybRect.top + (hybRect.height / 2) - containerRect.top;
 
-                document.getElementById('path-left-' + doc.id).setAttribute('d', drawCurve(startX_L, startY_L, endX_L, endY_L));
+                // Draw curve slightly short so stroke doesn't poke past arrow
+                document.getElementById('path-left-' + doc.id).setAttribute('d', drawCurve(startX_L, startY_L, targetX_L - 2, endY_L));
+                // Translate arrow exactly to target tip
+                document.getElementById('arrow-left-' + doc.id).setAttribute('transform', 'translate(' + targetX_L + ',' + endY_L + ')');
 
-                // Path from Semantic (Right) to Hybrid (Center)
+                // Right Path & Arrow
                 const startX_R = semRect.left - containerRect.left;
                 const startY_R = semRect.top + (semRect.height / 2) - containerRect.top;
-                const endX_R = hybRect.right - containerRect.left + 4; // Plus 4px for arrow clearance
+                const targetX_R = hybRect.right - containerRect.left + 4; 
                 const endY_R = hybRect.top + (hybRect.height / 2) - containerRect.top;
 
-                // For the right path, we start at Semantic (Right) and end at Hybrid (Leftward)
-                // The 'auto' orient in the marker will automatically make the arrow point left
-                document.getElementById('path-right-' + doc.id).setAttribute('d', drawCurve(startX_R, startY_R, endX_R, endY_R));
+                document.getElementById('path-right-' + doc.id).setAttribute('d', drawCurve(startX_R, startY_R, targetX_R + 2, endY_R));
+                document.getElementById('arrow-right-' + doc.id).setAttribute('transform', 'translate(' + targetX_R + ',' + endY_R + ')');
             });
         }
 
@@ -364,7 +359,7 @@
             animationTimer = setTimeout(function() {
                 isAnimating = false;
                 updateLines(); 
-            }, 450);
+            }, 450); // Accounts for the CSS slide transition duration
         }
 
         function updateHybridPositions(isInitialLoad) {
