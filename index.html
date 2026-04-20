@@ -67,7 +67,7 @@
             border: 1px solid #e5e7eb;
             display: flex;
             align-items: center;
-            height: 45px; /* Fixed height to keep spacing consistent */
+            height: 45px; 
         }
         .rank-badge {
             background: #374151;
@@ -101,18 +101,15 @@
             color: #6b7280;
             margin-top: 4px;
         }
-        
-        /* Specific styles for the animated Hybrid column */
         .hybrid-list-container {
             position: relative;
-            height: 380px; /* Space for 5 absolutely positioned cards */
+            height: 380px; 
         }
         .hybrid-card {
             position: absolute;
             left: 0;
             right: 0;
             margin-bottom: 0;
-            /* This transition is the magic that makes them slide smoothly */
             transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.3s ease, border-color 0.3s ease;
         }
     </style>
@@ -138,19 +135,18 @@
     <div class="grid">
         <div class="column" id="keywordCol">
             <h3>Keyword (BM25) Rank</h3>
-            </div>
+        </div>
         <div class="column" id="semanticCol">
             <h3>Semantic (Vector) Rank</h3>
-            </div>
+        </div>
         <div class="column" id="hybridCol">
             <h3>Final Hybrid (RRF) Rank</h3>
             <div class="hybrid-list-container" id="hybridContainer">
-                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        // Core Data
         const documents = [
             { id: "A", title: "AWS Okta breach incident report", keywordRank: 1, semanticRank: 4 },
             { id: "B", title: "Cloud IAM hijacking and identity pivot", keywordRank: 4, semanticRank: 1 },
@@ -159,76 +155,62 @@
             { id: "E", title: "GCP credential theft", keywordRank: 5, semanticRank: 3 }
         ];
 
-        const k = 60; // Standard RRF smoothing constant
+        const k = 60; 
 
-        // DOM Elements
         const slider = document.getElementById('weightSlider');
         const weightDisplay = document.getElementById('weightDisplay');
         const hybridContainer = document.getElementById('hybridContainer');
 
-        // Render Static Columns
         function renderStaticList(containerId, sortKey) {
             const container = document.getElementById(containerId);
-            const sortedDocs = [...documents].sort((a, b) => a[sortKey] - b[sortKey]);
+            const sortedDocs = [...documents].sort(function(a, b) { return a[sortKey] - b[sortKey]; });
             
-            sortedDocs.forEach(doc => {
+            sortedDocs.forEach(function(doc) {
                 const card = document.createElement('div');
                 card.className = 'doc-card';
-                card.innerHTML = `
-                    <div class="rank-badge">${doc[sortKey]}</div>
-                    <div class="doc-title">${doc.title}</div>
-                `;
+                card.innerHTML = '<div class="rank-badge">' + doc[sortKey] + '</div>' +
+                                 '<div class="doc-title">' + doc.title + '</div>';
                 container.appendChild(card);
             });
         }
 
-        // Initialize Animated Hybrid List (Creates DOM elements once)
         function initHybridList() {
-            documents.forEach((doc) => {
+            documents.forEach(function(doc) {
                 const card = document.createElement('div');
                 card.className = 'doc-card hybrid-card';
-                card.id = 'hybrid-doc-' + doc.id; // Assign ID to find it later
+                card.id = 'hybrid-doc-' + doc.id; 
                 
-                card.innerHTML = `
-                    <div class="rank-badge"></div>
-                    <div>
-                        <div class="doc-title">${doc.title}</div>
-                        <div class="score"></div>
-                    </div>
-                `;
+                card.innerHTML = '<div class="rank-badge"></div>' +
+                                 '<div>' +
+                                     '<div class="doc-title">' + doc.title + '</div>' +
+                                     '<div class="score"></div>' +
+                                 '</div>';
                 hybridContainer.appendChild(card);
             });
         }
 
-        // Calculate RRF and Update Positions
         function updateHybridPositions(semanticWeightPct) {
             const semanticWeight = semanticWeightPct / 100;
             const keywordWeight = 1 - semanticWeight;
 
-            // Calculate Scores
-            let hybridDocs = documents.map(doc => {
+            let hybridDocs = documents.map(function(doc) {
                 const keywordScore = keywordWeight * (1 / (k + doc.keywordRank));
                 const semanticScore = semanticWeight * (1 / (k + doc.semanticRank));
                 const rrfScore = keywordScore + semanticScore;
-                return { ...doc, rrfScore };
+                return { id: doc.id, title: doc.title, rrfScore: rrfScore };
             });
 
-            // Sort by highest score first
-            hybridDocs.sort((a, b) => b.rrfScore - a.rrfScore);
+            hybridDocs.sort(function(a, b) { return b.rrfScore - a.rrfScore; });
 
-            // Update existing DOM elements
-            hybridDocs.forEach((doc, index) => {
+            hybridDocs.forEach(function(doc, index) {
                 const rank = index + 1;
                 const card = document.getElementById('hybrid-doc-' + doc.id);
                 
-                // Update text
                 card.querySelector('.rank-badge').innerText = rank;
                 card.querySelector('.score').innerText = 'Score: ' + (doc.rrfScore * 1000).toFixed(3);
+                
+                card.style.transform = 'translateY(' + (index * 85) + 'px)';
 
-                // Animate position (72px spacing per card)
-                card.style.transform = \`translateY(\${index * 85}px)\`;
-
-                // Add or remove winner styling
                 if (rank === 1) {
                     card.classList.add('winner');
                 } else {
@@ -237,19 +219,17 @@
             });
         }
 
-        // Event Listener for Slider
-        slider.addEventListener('input', (e) => {
+        slider.addEventListener('input', function(e) {
             const semanticVal = e.target.value;
             const keywordVal = 100 - semanticVal;
-            weightDisplay.innerText = `${keywordVal}% Keyword / ${semanticVal}% Semantic`;
+            weightDisplay.innerText = keywordVal + '% Keyword / ' + semanticVal + '% Semantic';
             updateHybridPositions(semanticVal);
         });
 
-        // Initial Setup
         renderStaticList('keywordCol', 'keywordRank');
         renderStaticList('semanticCol', 'semanticRank');
         initHybridList();
-        updateHybridPositions(50); // Initial layout
+        updateHybridPositions(50); 
     </script>
 </body>
 </html>
