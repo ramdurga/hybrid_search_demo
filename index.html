@@ -63,7 +63,7 @@
         
         /* The Grid and SVG Overlay */
         .grid-container {
-            position: relative; /* Crucial for SVG positioning */
+            position: relative; 
         }
         #connections-svg {
             position: absolute;
@@ -71,19 +71,19 @@
             left: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none; /* Lets you click cards through the lines */
+            pointer-events: none; 
             z-index: 1;
         }
         .grid {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
-            gap: 40px; /* Wider gap for the lines to sweep gracefully */
+            gap: 60px; /* Widened gap to make the curves look graceful */
             position: relative;
             z-index: 2;
         }
 
         .column {
-            background: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(4px);
             padding: 20px;
             border-radius: 8px;
@@ -106,11 +106,12 @@
             border-radius: 6px;
             background: white;
             border: 1px solid #e5e7eb;
-            border-left-width: 5px; /* Thicker left border for color coding */
+            border-left-width: 5px; 
             display: flex;
             align-items: center;
             height: 55px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            position: relative;
         }
         .rank-badge {
             background: #374151;
@@ -151,7 +152,6 @@
             left: 0;
             right: 0;
             margin-bottom: 0;
-            /* Transition handles the vertical sliding */
             transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.3s ease;
         }
         .hybrid-card.winner {
@@ -209,13 +209,12 @@
     </div>
 
     <script>
-        // Data with assigned color codes for tracking
         const documents = [
-            { id: "A", title: "AWS Okta breach incident report", keywordRank: 1, semanticRank: 4, baselineRank: 0, color: "#3b82f6" }, // Blue
-            { id: "B", title: "Cloud IAM hijacking and identity pivot", keywordRank: 4, semanticRank: 1, baselineRank: 0, color: "#8b5cf6" }, // Purple
-            { id: "C", title: "AWS lateral pivot via compromised tokens", keywordRank: 3, semanticRank: 2, baselineRank: 0, color: "#10b981" }, // Green
-            { id: "D", title: "Stolen laptop incident", keywordRank: 2, semanticRank: 5, baselineRank: 0, color: "#f59e0b" }, // Orange
-            { id: "E", title: "GCP credential theft", keywordRank: 5, semanticRank: 3, baselineRank: 0, color: "#ef4444" }  // Red
+            { id: "A", title: "AWS Okta breach incident report", keywordRank: 1, semanticRank: 4, baselineRank: 0, color: "#3b82f6" }, 
+            { id: "B", title: "Cloud IAM hijacking and identity pivot", keywordRank: 4, semanticRank: 1, baselineRank: 0, color: "#8b5cf6" }, 
+            { id: "C", title: "AWS lateral pivot via compromised tokens", keywordRank: 3, semanticRank: 2, baselineRank: 0, color: "#10b981" }, 
+            { id: "D", title: "Stolen laptop incident", keywordRank: 2, semanticRank: 5, baselineRank: 0, color: "#f59e0b" }, 
+            { id: "E", title: "GCP credential theft", keywordRank: 5, semanticRank: 3, baselineRank: 0, color: "#ef4444" }  
         ];
 
         const weightSlider = document.getElementById('weightSlider');
@@ -227,7 +226,6 @@
         const svgCanvas = document.getElementById('connections-svg');
         const gridContainer = document.getElementById('gridContainer');
 
-        // Render Static Columns
         function renderStaticList(containerId, sortKey, prefix) {
             const container = document.getElementById(containerId);
             const sortedDocs = [...documents].sort(function(a, b) { return a[sortKey] - b[sortKey]; });
@@ -244,7 +242,6 @@
             });
         }
 
-        // Initialize Center Column
         function initHybridList() {
             documents.forEach(function(doc) {
                 const card = document.createElement('div');
@@ -264,36 +261,56 @@
             });
         }
 
-        // Setup SVG Paths
         function initSVGPaths() {
+            // Create a <defs> block to store the custom arrowheads
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            svgCanvas.appendChild(defs);
+
             documents.forEach(function(doc) {
-                // Path from Keyword (Left) to Hybrid (Center)
+                // Generate a colored arrowhead marker for each document
+                const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+                marker.id = 'arrow-' + doc.id;
+                marker.setAttribute('viewBox', '0 0 10 10');
+                marker.setAttribute('refX', '8'); // Pulls the arrow back slightly so it doesn't overlap the card
+                marker.setAttribute('refY', '5');
+                marker.setAttribute('markerWidth', '6');
+                marker.setAttribute('markerHeight', '6');
+                marker.setAttribute('orient', 'auto-start-reverse');
+                
+                const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                arrowPath.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+                arrowPath.setAttribute('fill', doc.color);
+                marker.appendChild(arrowPath);
+                defs.appendChild(marker);
+
+                // Left to Center Path
                 const pathL = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 pathL.id = 'path-left-' + doc.id;
                 pathL.setAttribute('stroke', doc.color);
-                pathL.setAttribute('stroke-width', '4');
+                pathL.setAttribute('stroke-width', '3');
                 pathL.setAttribute('fill', 'none');
-                pathL.setAttribute('opacity', '0.4');
+                pathL.setAttribute('opacity', '0.5');
+                pathL.setAttribute('marker-end', 'url(#arrow-' + doc.id + ')');
                 svgCanvas.appendChild(pathL);
 
-                // Path from Semantic (Right) to Hybrid (Center)
+                // Right to Center Path
                 const pathR = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 pathR.id = 'path-right-' + doc.id;
                 pathR.setAttribute('stroke', doc.color);
-                pathR.setAttribute('stroke-width', '4');
+                pathR.setAttribute('stroke-width', '3');
                 pathR.setAttribute('fill', 'none');
-                pathR.setAttribute('opacity', '0.4');
+                pathR.setAttribute('opacity', '0.5');
+                pathR.setAttribute('marker-end', 'url(#arrow-' + doc.id + ')');
                 svgCanvas.appendChild(pathR);
             });
         }
 
-        // Draw Bezier Curves between elements
+        // Draw a smooth Cubic Bezier Curve
         function drawCurve(startX, startY, endX, endY) {
-            const controlOffset = Math.abs(endX - startX) * 0.5;
-            return 'M ' + startX + ' ' + startY + ' C ' + (startX + controlOffset) + ' ' + startY + ', ' + (endX - controlOffset) + ' ' + endY + ', ' + endX + ' ' + endY;
+            const controlPointX = startX + (endX - startX) / 2;
+            return 'M ' + startX + ' ' + startY + ' C ' + controlPointX + ' ' + startY + ', ' + controlPointX + ' ' + endY + ', ' + endX + ' ' + endY;
         }
 
-        // Update the SVG lines based on current DOM positions
         function updateLines() {
             const containerRect = gridContainer.getBoundingClientRect();
             
@@ -308,29 +325,28 @@
                 const semRect = semCard.getBoundingClientRect();
                 const hybRect = hybCard.getBoundingClientRect();
 
-                // Left Column to Center Column
+                // Path from Keyword to Hybrid
                 const startX_L = kwRect.right - containerRect.left;
                 const startY_L = kwRect.top + (kwRect.height / 2) - containerRect.top;
-                const endX_L = hybRect.left - containerRect.left;
+                const endX_L = hybRect.left - containerRect.left - 4; // Minus 4px for arrow clearance
+
                 const endY_L = hybRect.top + (hybRect.height / 2) - containerRect.top;
 
                 document.getElementById('path-left-' + doc.id).setAttribute('d', drawCurve(startX_L, startY_L, endX_L, endY_L));
 
-                // Right Column to Center Column
+                // Path from Semantic to Hybrid
                 const startX_R = semRect.left - containerRect.left;
                 const startY_R = semRect.top + (semRect.height / 2) - containerRect.top;
-                const endX_R = hybRect.right - containerRect.left;
+                const endX_R = hybRect.right - containerRect.left + 4; // Plus 4px for arrow clearance
                 const endY_R = hybRect.top + (hybRect.height / 2) - containerRect.top;
 
                 document.getElementById('path-right-' + doc.id).setAttribute('d', drawCurve(startX_R, startY_R, endX_R, endY_R));
             });
         }
 
-        // Animation Loop Variables
         let isAnimating = false;
         let animationTimer;
 
-        // The continuous drawing loop that syncs with the CSS slide transition
         function animationLoop() {
             updateLines();
             if (isAnimating) {
@@ -338,21 +354,18 @@
             }
         }
 
-        // Trigger the animation loop when slider moves
         function triggerLineAnimation() {
             if (!isAnimating) {
                 isAnimating = true;
                 animationLoop();
             }
             clearTimeout(animationTimer);
-            // Stop animating 450ms after the last slider movement (covers the 0.4s CSS transition)
             animationTimer = setTimeout(function() {
                 isAnimating = false;
-                updateLines(); // One final snap for perfect alignment
+                updateLines(); 
             }, 450);
         }
 
-        // Calculate RRF and Update Positions
         function updateHybridPositions(isInitialLoad) {
             const semanticWeight = weightSlider.value / 100;
             const keywordWeight = 1 - semanticWeight;
@@ -399,7 +412,6 @@
             triggerLineAnimation();
         }
 
-        // Handle Slider Inputs
         function handleInput() {
             weightDisplay.innerText = (100 - weightSlider.value) + '% Keyword / ' + weightSlider.value + '% Semantic';
             kDisplay.innerText = 'k = ' + kSlider.value;
@@ -408,15 +420,13 @@
 
         weightSlider.addEventListener('input', handleInput);
         kSlider.addEventListener('input', handleInput);
-        window.addEventListener('resize', updateLines); // Redraw lines if window resizes
+        window.addEventListener('resize', updateLines); 
 
-        // Initialize Everything
         renderStaticList('keywordCol', 'keywordRank', 'kw');
         renderStaticList('semanticCol', 'semanticRank', 'sem');
         initHybridList();
         initSVGPaths();
         
-        // Small delay to ensure DOM is fully rendered before drawing initial lines
         setTimeout(function() {
             updateHybridPositions(true);
         }, 50);
